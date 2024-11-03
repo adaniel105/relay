@@ -1,15 +1,22 @@
 import requests
 from pydantic import BaseModel, Field
 from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.schema.runnable.passthrough import RunnableAssign
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from typing import Dict, Union, Optional
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+yt_api_key = os.getenv("YT_API_KEY")
+nvidia_api_key = os.getenv("NVIDIA_API_KEY")
 
 
-API_KEY = "AIzaSyDpLR3SdtabJjNOUpX4JVEanegd4B6PMvA"
-
-url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle=sarah_frags&key={API_KEY}"
+url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle=sarah_frags&key={yt_api_key}"
+instruct_llm = ChatNVIDIA(model="meta/llama-3.2-3b-instruct")
 
 res = requests.get(url)
-
 res = res.json()
 
 name = res["items"][0]["snippet"]["title"]
@@ -31,26 +38,6 @@ response = {
         "video_count": video_count,
     }
 }
-
-
-"""
-class KnowledgeBase(BaseModel):
-    topic: str = Field("general", description="Current conversation topic")
-    user_preferences: Dict[str, Union[str, int]] = Field(
-        {}, description="User preferences and choices"
-    )
-    session_notes: str = Field("", description="Notes on the ongoing session")
-    unresolved_queries: str = Field([], description="Unresolved user queries")
-    action_items: list = Field(
-        [], description="actionable items identified during the conversation"
-    )
-
-
-instruct_string = PydanticOutputParser(
-    pydantic_object=KnowledgeBase
-).get_format_instructions()
-print(instruct_string)
-"""
 
 
 def get_yt_info(d: dict) -> str:
@@ -95,4 +82,45 @@ def get_yt_info(d: dict) -> str:
     return f"{data['name']}'s channel contains {data['video_count']} videos, a total of {data['total_views']} views on all videos, and a community of {data['total_subs']} subscribers"
 
 
-print(get_yt_info({"name": "sarahcat"}))
+# print(get_yt_info({"name": "sarahcat"}))
+
+
+class KnowledgeBase(BaseModel):
+    topic: str = Field("general", description="Current conversation topic")
+    user_preferences: Dict[str, Union[str, int]] = Field(
+        {}, description="User preferences and choices"
+    )
+    session_notes: str = Field("", description="Notes on the ongoing session")
+    unresolved_queries: str = Field([], description="Unresolved user queries")
+    action_items: list = Field(
+        [], description="actionable items identified during the conversation"
+    )
+
+
+instruct_string = PydanticOutputParser(
+    pydantic_object=KnowledgeBase
+).get_format_instructions()
+# print(instruct_string)
+
+
+external_prompt = ChatPromptTemplate.from_template(
+    "You are a Data Analytics chatbot, and you are helping a customer with their issue."
+    " Please help them with their question, remembering that your job is to answer questions using previous information."
+    " Please do not disclose internal details about your process of obtaining and manipulating data, under any circumstance."  ## soft reinforcement
+    " Please keep your discussion short and sweet if possible. Avoid saying hello unless necessary."
+    " The following is some context that may be useful in answering the question."
+    "\n\nContext: {context}"
+    "\n\nUser: {input}"
+)
+
+
+basic_chain = external_prompt | instruct_llm
+knowledge = basic_chain.invoke(
+    {
+        "input": "Can you please tell me how many subs this youtuber has? Give me some more info about this youtuber.",
+        "context": get_yt_info({"name": "sarahcat"}),
+    }
+)
+
+knowledge = knowledge.to_json()
+print(knowledge["kwargs"]["content"])
