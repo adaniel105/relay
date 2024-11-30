@@ -4,7 +4,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema.runnable.passthrough import RunnableAssign
 from langchain.schema.runnable import RunnableLambda
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from langchain_huggingface import ChatHuggingFace
 from operator import itemgetter
 from api import yt
 from models.know_base import KnowledgeBase
@@ -12,11 +12,27 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-nvidia_api_key = os.getenv("NVIDIA_API_KEY")
+hf_api_key = os.getenv("HF_API_KEY")
 
-chat_llm = ChatNVIDIA(model="meta/llama-3.2-3b-instruct") | StrOutputParser()
-instruct_llm = ChatNVIDIA(model="meta/llama3-70b-instruct") | StrOutputParser()
+# Chat LLM using Meta Llama 3 via Hugging Face API
+chat_llm = ChatHuggingFace(
+    model="meta-llama/Meta-Llama-3-8B-Instruct",
+    huggingfacehub_api_token=hf_api_key,
+    model_kwargs={
+        "temperature": 0,
+        "max_new_tokens": 512
+    }
+) | StrOutputParser()
 
+# Instruct LLM using a smaller variant or another Llama model
+instruct_llm = ChatHuggingFace(
+    model="meta-llama/Meta-Llama-3-7B-Instruct",
+    huggingfacehub_api_token=hf_api_key,
+    model_kwargs={
+        "temperature": 0,
+        "max_new_tokens": 256
+    }
+) | StrOutputParser()
 
 def RExtract(pydantic_class, llm, prompt):
     """
@@ -123,8 +139,10 @@ def chat_gen(message, history=[], return_buffer=True):
 
     ## Generating the new state from the internal chain
     state = internal_chain.invoke(state)
+    """
     print("State after chain run:")
     print({k: v for k, v in state.items() if k != "history"})
+    """
 
     ## Streaming the results
     buffer = ""
