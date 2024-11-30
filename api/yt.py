@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 YT_API_KEY = os.getenv("YT_API_KEY")
 
-# querystring = {"part" : "snippet, statistics", "forHandle" : "sarah_frags", "key" : f"{YT_API_KEY}" }
+#TODO: scrape stats.
+# querystring = {"part" : "snippet, statistics", "forHandle" : "BloombergPodcasts", "key" : f"{YT_API_KEY}" }
 url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle=BloombergPodcasts&key={YT_API_KEY}"
 
 res = requests.get(url)
@@ -13,13 +14,12 @@ res = res.json()
 
 name = res["items"][0]["snippet"]["title"]
 description = res["items"][0]["snippet"]["description"]
-# creation_date = res["items"][0]["snippet"]["publishedAt"] use after formatting
 total_views = res["items"][0]["statistics"]["viewCount"]
 total_subs = res["items"][0]["statistics"]["subscriberCount"]
 video_count = res["items"][0]["statistics"]["videoCount"]
 
 # splitting this later so i read into dict instead of directly (also for readability)
-# real life this will probably run async and store responses in cache for search, but for now, let's index directly.
+#todo: async,cache responses.
 
 response = {
     "dict1": {
@@ -57,10 +57,10 @@ def get_info(d: dict) -> str:
     else:
         print("Channel not found")
 
-    # used to fetch required keys.
+    #fetch required keys.
     get_key = lambda d: "|".join(
         [d["name"]]
-    )  # doesn't work because we can't match strings to their ints
+    )  
     get_val = lambda l: {k: v for k, v in zip(keys, l)}
     db = {get_key(get_val(entry)): get_val(entry) for entry in values}
 
@@ -74,4 +74,4 @@ def get_info(d: dict) -> str:
     return f"{data['name']}'s channel contains {data['video_count']} videos, a total of {data['total_views']} views on all videos, and a community of {data['total_subs']} subscribers"
 
 
-# print(get_yt_info({"name": "sarahcat"}))
+
